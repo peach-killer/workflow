@@ -1,0 +1,112 @@
+name: test-unsupported
+on:
+  # The following PollSCM schedule was transformed and may behave differently than in Jenkins.
+  # In Actions, this workflow will run on this schedule regardless of any changes whereas in Jenkins a job will only run if there are changes.
+  schedule:
+  - cron: "*/5 * * * *"
+  push:
+    paths: "*"
+env:
+#   # This item has no matching transformer
+#   DEPLOY_KEY:
+jobs:
+  Dynamic_Stage_Generation:
+    name: Dynamic Stage Generation
+    runs-on:
+      - self-hosted
+      - dynamic-node
+      - linux
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+#     # 'script' was not transformed because there is no suitable equivalent in GitHub Actions
+#     - name: script
+#       arguments:
+#       - key: scriptBlock
+#         value:
+#           isLiteral: true
+#           value: "def stages = ['Build', 'Test', 'Deploy']\n                    stages.each { stageName ->\n                        echo \"Running dynamic stage: ${{ env.stageName }}\"\n                        // æ¨¡æ\x8B\x9Fæ\x89§è¡\x8C\n                        sleep 2\n                    }"
+  Run_External_Script:
+    name: Run External Script
+    runs-on:
+      - self-hosted
+      - dynamic-node
+      - linux
+    needs: Dynamic_Stage_Generation
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+#     # This item has no matching transformer
+#     - load:
+#       - key: path
+#         value:
+#           isLiteral: true
+#           value: external_script.groovy
+  Custom_Plugin:
+    name: Custom Plugin
+    runs-on:
+      - self-hosted
+      - dynamic-node
+      - linux
+    needs: Run_External_Script
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+#     # Mail was not converted because the behavior is available by default in GitHub Actions and/or it is not configurable
+  Parallel_Jobs_Task_1:
+    name: Parallel Jobs-Task 1
+    runs-on:
+      - self-hosted
+      - dynamic-node
+      - linux
+    needs: Custom_Plugin
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: echo message
+      run: echo Running Task 1
+  Parallel_Jobs_Task_2:
+    name: Parallel Jobs-Task 2
+    runs-on:
+      - self-hosted
+      - dynamic-node
+      - linux
+    needs: Custom_Plugin
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+    - name: echo message
+      run: echo Running Task 2
+  Post-Build:
+    if: always()
+    name: Post Build
+    runs-on:
+      - self-hosted
+      - dynamic-node
+      - linux
+    needs:
+    - Dynamic_Stage_Generation
+    - Run_External_Script
+    - Custom_Plugin
+    - Parallel_Jobs_Task_1
+    - Parallel_Jobs_Task_2
+    steps:
+    - name: snapshot post build workflow status
+      run: echo "failure=${{ contains(needs.*.result,'failure') && !contains(needs.*.result,'cancelled') }}" >> $GITHUB_OUTPUT
+      id: post_build
+    - uses: rtCamp/action-slack-notify@v2.2.1
+      env:
+        SLACK_WEBHOOK: "${{ secrets.SLACK_WEBHOOK }}"
+        SLACK_CHANNEL: "#alerts"
+        SLACK_MESSAGE: '"Build failed: ${{ env.JOB_NAME }} ${{ env.BUILD_NUMBER }}"'
+      if: steps.post_build.outputs.failure == 'true'
+#     # 'script' was not transformed because there is no suitable equivalent in GitHub Actions
+#     - name: script
+#       arguments:
+#       - key: scriptBlock
+#         value:
+#           isLiteral: true
+#           value: |-
+#             echo 'Cleaning up dynamic nodes'
+#                             sleep 1
+#       if: always()
